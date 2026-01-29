@@ -2,7 +2,27 @@ import sympy as sp
 import numpy as np
 import re
 
+def format_symbolic(expr):
+    """Formats and simplifies a SymPy expression string to use the √ symbol."""
+    try:
+        # Simplify and evaluate the expression
+        expr = sp.simplify(expr)
+        if hasattr(expr, 'doit'):
+            expr = expr.doit()
+    except:
+        pass
+    
+    s = str(expr)
+    # Replace sqrt(x) with √x if x is a simple number or symbol
+    s = re.sub(r'sqrt\((\d+|[a-zA-Z])\)', r'√\1', s)
+    # Replace remaining sqrt with √
+    s = s.replace("sqrt", "√")
+    return s
+
+# --- Basic Matrix Operations ---
+
 def add_matrices(matrices):
+    """Adds multiple matrices together."""
     def add_two(A, B):
         if len(A) != len(B) or len(A[0]) != len(B[0]):
             raise ValueError("Matrices cannot be added: Incompatible dimensions.")
@@ -17,6 +37,7 @@ def add_matrices(matrices):
     return result
 
 def subtract_matrices(matrices):
+    """Subtracts multiple matrices from the first one."""
     def subtract_two(A, B): 
         if len(A) != len(B) or len(A[0]) != len(B[0]):
             raise ValueError("Matrices cannot be subtracted: Incompatible dimensions.")
@@ -31,6 +52,7 @@ def subtract_matrices(matrices):
     return result
 
 def multiply_matrices(matrices):
+    """Performs matrix multiplication for a sequence of matrices."""
     def multiply_two(A, B):
         if len(A[0]) != len(B):
             raise ValueError("Matrices cannot be multiplied: Incompatible dimensions.")
@@ -45,6 +67,7 @@ def multiply_matrices(matrices):
     return result
 
 def elementwise_multiply(matrices):
+    """Multiplies matrices element by element."""
     def multiply_two(A, B):
         if len(A) != len(B) or len(A[0]) != len(B[0]):
             raise ValueError("Matrices must have the same dimensions for element-wise multiplication")
@@ -58,7 +81,10 @@ def elementwise_multiply(matrices):
         result = multiply_two(result, matrix)
     return result
 
+# --- Advanced Matrix Operations ---
+
 def determinant(matrix):
+    """Calculates the determinant of a square matrix using recursion."""
     if len(matrix) != len(matrix[0]):
         raise ValueError("Determinant can only be computed for square matrices.")
     if len(matrix) == 1:
@@ -72,6 +98,7 @@ def determinant(matrix):
     return det
 
 def inverse(matrix):
+    """Computes the inverse of a square matrix using the cofactor method."""
     if len(matrix) != len(matrix[0]):
         raise ValueError("Inverse is only defined for square matrices.")
 
@@ -90,48 +117,37 @@ def inverse(matrix):
     return [[adjugate_matrix[i][j] / det for j in range(len(matrix))] for i in range(len(matrix))]
 
 def transpose(matrix):
+    """Returns the transpose of a matrix."""
     return [[matrix[j][i] for j in range(len(matrix))] for i in range(len(matrix[0]))]
 
 def trace(matrix):
+    """Returns the sum of the diagonal elements of a square matrix."""
     if len(matrix) != len(matrix[0]):
         raise ValueError("Trace is only defined for square matrices.")
     return sum(matrix[i][i] for i in range(len(matrix)))
 
 def eigenvalues(matrix):
+    """Calculates eigenvalues using the SymPy library."""
     try:
         sym_matrix = sp.Matrix(matrix)
         eigenvals = sym_matrix.eigenvals()
         result_text = "Eigenvalues:\n"
         for eigenval, multiplicity in eigenvals.items():
-            try:
-                val = complex(eigenval)
-                if val.imag == 0:
-                    formatted_val = f"{val.real:.4f}"
-                else:
-                    formatted_val = f"{val.real:.4f} + {val.imag:.4f}i"
-            except:
-                formatted_val = str(eigenval)
-
+            formatted_val = format_symbolic(eigenval)
             result_text += f"  λ = {formatted_val} (multiplicity: {multiplicity})\n"
         return result_text
     except Exception as e:
         raise ValueError(f"Error computing eigenvalues: {str(e)}")
 
 def eigenvectors(matrix):
+    """Calculates eigenvectors using the SymPy library."""
     try:
         sym_matrix = sp.Matrix(matrix)
         eigenvects = sym_matrix.eigenvects()
         result_text = "Eigenvectors:\n"
         
         for i, (eigenval, multiplicity, vectors) in enumerate(eigenvects):
-            try:
-                val = complex(eigenval)
-                if val.imag == 0:
-                    formatted_val = f"{val.real:.4f}"
-                else:
-                    formatted_val = f"{val.real:.4f} + {val.imag:.4f}i"
-            except:
-                formatted_val = str(eigenval)
+            formatted_val = format_symbolic(eigenval)
             
             result_text += f"\nFor eigenvalue λ = {formatted_val}:\n"
             
@@ -139,14 +155,7 @@ def eigenvectors(matrix):
                 result_text += f"  Eigenvector {j+1}: ["
                 vector_components = []
                 for component in vector:
-                    try:
-                        comp = complex(component)
-                        if comp.imag == 0:
-                            vector_components.append(f"{comp.real:.4f}")
-                        else:
-                            vector_components.append(f"{comp.real:.4f} + {comp.imag:.4f}i")
-                    except:
-                        vector_components.append(str(component))
+                    vector_components.append(format_symbolic(component))
                 
                 result_text += ", ".join(vector_components) + "]\n"
         return result_text
@@ -154,6 +163,7 @@ def eigenvectors(matrix):
         raise ValueError(f"Error computing eigenvectors: {str(e)}")
 
 def characteristics(matrix):
+    """Checks for matrix properties (symmetric, diagonal, etc.)."""
     tr = transpose(matrix)
     is_symmetric = all(matrix[i][j] == tr[i][j] 
                       for i in range(len(matrix)) 
@@ -177,6 +187,7 @@ def characteristics(matrix):
     }
 
 def matrix_power(matrix, power):
+    """Raises a square matrix to a given power."""
     if len(matrix) != len(matrix[0]):
         raise ValueError("Matrix exponentiation is only defined for square matrices.")
 
@@ -194,9 +205,11 @@ def matrix_power(matrix, power):
     return result
 
 def scalar_multiply(matrix, scalar):
+    """Multiplies every element in the matrix by a scalar value."""
     return [[element * scalar for element in row] for row in matrix]
 
 def gauss_transformation(M):
+    """Performs Gaussian elimination to transform the matrix into row-echelon form."""
     A = np.array(M, dtype=float)
     n, m = A.shape
 

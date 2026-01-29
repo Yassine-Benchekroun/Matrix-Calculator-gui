@@ -1,9 +1,11 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, messagebox
 import numpy as np
+import sympy as sp
 import src.logic as logic
 
 class AdvancedMathCalculator:
+    """Main application class for the Matrix Calculator GUI."""
     def __init__(self, root):
         self.root = root
         self.matrix_count = 2
@@ -13,6 +15,7 @@ class AdvancedMathCalculator:
         self.create_widgets()
         
     def setup_window(self):
+        """Configures the main application window settings."""
         self.root.title("Matrix calculator")
         self.root.geometry("1200x800")
         self.root.configure(bg='#1a1a2e')
@@ -21,6 +24,7 @@ class AdvancedMathCalculator:
         self.root.grid_columnconfigure(0, weight=1)
         
     def setup_styles(self):
+        """Defines custom styles for TTK widgets (buttons, tabs, etc.)."""
         self.style = ttk.Style()
         self.style.theme_use('clam')
         self.style.configure('Title.TLabel', background='#1a1a2e', foreground='#00d4ff', font=('Arial', 24, 'bold'))
@@ -34,6 +38,7 @@ class AdvancedMathCalculator:
         self.style.map('TNotebook.Tab', background=[('selected', '#0f3460'), ('active', '#1e5f8b')])
         
     def create_widgets(self):
+        """Creates the main layout components including the title and notebook tabs."""
         main_frame = tk.Frame(self.root, bg='#1a1a2e')
         main_frame.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
         main_frame.grid_rowconfigure(1, weight=1)
@@ -48,10 +53,16 @@ class AdvancedMathCalculator:
         self.create_matrix_tab()
         self.create_output_tab()
         
+        # Inline Error Label at the bottom
+        self.error_label = tk.Label(main_frame, text="", bg='#1a1a2e', fg='#e74c3c', font=('Arial', 12, 'bold'))
+        self.error_label.grid(row=2, column=0, pady=(10, 0))
+        
     def create_matrix_tab(self):
+        """Builds the 'Matrix Operations' tab containing input fields and operation buttons."""
         matrix_frame = tk.Frame(self.notebook, bg='#16213e')
         self.notebook.add(matrix_frame, text='🔢 Matrix Operations')
 
+        # Scrollable area setup
         canvas = tk.Canvas(matrix_frame, bg='#16213e', highlightthickness=0)
         scrollbar = ttk.Scrollbar(matrix_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = tk.Frame(canvas, bg='#16213e')
@@ -65,6 +76,7 @@ class AdvancedMathCalculator:
         main_container = tk.Frame(scrollable_frame, bg='#16213e')
         main_container.pack(fill='both', expand=True, padx=10, pady=5)
 
+        # Matrix Count Spinbox
         left_frame = tk.Frame(main_container, bg='#16213e')
         left_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
 
@@ -80,6 +92,7 @@ class AdvancedMathCalculator:
         self.matrix_count_spinbox.pack(side='left', padx=(0, 10))
         tk.Label(count_input_frame, text="(Max: 4)", bg='#16213e', fg='#95a5a6', font=('Arial', 9)).pack(side='left')
     
+        # Scalar & Power Inputs
         scalar_frame = tk.LabelFrame(left_frame, text="Scalar Input", bg='#16213e', fg='#ffffff', font=('Arial', 12, 'bold'))
         scalar_frame.pack(fill='x', pady=5)
         tk.Label(scalar_frame, text="Scalar value:", bg='#16213e', fg='#ffffff', font=('Arial', 10)).pack(anchor='w', padx=5, pady=2)
@@ -102,6 +115,7 @@ class AdvancedMathCalculator:
         self.power_entry.pack(side='left')
         tk.Label(power_input_frame, text="(for Matrix Power)", bg='#16213e', fg='#95a5a6', font=('Arial', 9)).pack(side='left', padx=(10, 0))
 
+        # Operation Buttons
         right_frame = tk.Frame(main_container, bg='#16213e')
         right_frame.pack(side='right', fill='both', expand=True)
 
@@ -124,6 +138,7 @@ class AdvancedMathCalculator:
         for i in range(4): advanced_frame.grid_columnconfigure(i, weight=1)
 
     def create_output_tab(self):
+        """Constructs the 'Results' tab with a scrollable text area for outputs."""
         output_frame = tk.Frame(self.notebook, bg='#16213e')
         self.notebook.add(output_frame, text='📋 Results')
         output_label_frame = tk.LabelFrame(output_frame, text="Calculation Results", bg='#16213e', fg='#ffffff', font=('Arial', 12, 'bold'))
@@ -136,6 +151,8 @@ class AdvancedMathCalculator:
         ttk.Button(button_frame, text="Copy to Clipboard", style='Custom.TButton', command=self.copy_results).pack(side='left', padx=5)
     
     def matrix_operation(self, operation):
+        """Dispatches GUI requests to the mathematical logic module and handles validation."""
+        self.error_label.config(text="") # Clear previous errors
         try:
             matrices = []
             for matrix_text in self.matrix_texts:
@@ -147,6 +164,7 @@ class AdvancedMathCalculator:
             if not matrices: raise ValueError("At least one matrix is required")
             matrix_a = matrices[0]
 
+            # Input validation logic
             if operation in ["matrix_multiply", "matrix_subtract", "matrix_add", "elementwise_multiply"]:
                 if len(matrices) < 2: raise ValueError(f"{operation.replace('_', ' ').title()} requires at least 2 matrices")
                 if operation == "matrix_multiply":
@@ -154,6 +172,7 @@ class AdvancedMathCalculator:
                 else:
                     for i in range(1, len(matrices)): self.validate_matrix_sum_sub(matrices[0], matrices[i])
 
+            # Operation mapping
             if operation == "matrix_add": result = logic.add_matrices(matrices)
             elif operation == "matrix_subtract": result = logic.subtract_matrices(matrices)
             elif operation == "matrix_multiply": result = logic.multiply_matrices(matrices)
@@ -174,43 +193,66 @@ class AdvancedMathCalculator:
             elif operation == "scalar_multiply":
                 scalar_str = self.scalar_entry.get().strip()
                 if not scalar_str: raise ValueError("Enter scalar in Scalar Input field")
-                scalar = float(scalar_str)
+                scalar = sp.sympify(scalar_str)
+                if scalar == sp.zoo or scalar == sp.nan:
+                    raise ValueError("Division by zero in scalar input")
                 result = logic.scalar_multiply(matrix_a, scalar)
             else: raise ValueError(f"Operation {operation} not found")
 
+            # Result formatting selection
             if operation in ["determinant", "trace"]: self.display_result(operation, result, 0)
             elif operation in ["eigenvalues", "eigenvectors"]: self.display_result(operation, result, 3)
             elif operation == "characteristics": self.display_result(operation, result, 2)
             else: self.display_result(operation, result, 1)
 
+            self.notebook.select(1) # Auto-switch to results tab
+
+        except ValueError as e:
+            self.error_label.config(text=f"⚠️ {str(e)}")
         except Exception as e:
-            self.display_result("Error", str(e))
-        self.notebook.select(1)
+            self.error_label.config(text=f"❌ Error: {str(e)}")
 
     def parse_matrix(self, text):
+        """Parses a string input into a 2D list of floats."""
         lines = text.strip().split('\n')
         matrix = []
         for line in lines:
             line = line.strip()
             if line:
+                # Replace symbol √ with sqrt() for library compatibility
+                import re
+                line = re.sub(r'√(\d+|[a-zA-Z])', r'sqrt(\1)', line)
+                # Also handle √(...) cases
+                line = line.replace('√(', 'sqrt(')
+                
                 elements = line.split(',') if ',' in line else line.split()
-                row = [float(e.strip()) for e in elements if e.strip()]
+                row = []
+                for e in elements:
+                    if e.strip():
+                        val = sp.sympify(e.strip())
+                        if val == sp.zoo or val == sp.nan:
+                            raise ValueError("Division by zero detected in input")
+                        row.append(val)
                 if row: matrix.append(row)
         return matrix
 
     def validate_matrix_sum_sub(self, A, B):
+        """Ensures matrices have matching dimensions for addition/subtraction."""
         if not A or not B: raise ValueError("Matrices empty")
         if len(A) != len(B) or len(A[0]) != len(B[0]): raise ValueError("Matrices must have same size")
 
     def validate_matrix_multiplication(self, A, B):
+        """Validates that matrix A rows match matrix B columns for multiplication."""
         if not A or not B: raise ValueError("Matrices empty")
         if len(A[0]) != len(B): raise ValueError(f"A(cols={len(A[0])}) != B(rows={len(B)})")
 
     def validate_matrix_size(self, matrix, max_size=6):
+        """Prevents processing of excessively large matrices."""
         if len(matrix) > max_size or (matrix and len(matrix[0]) > max_size):
             raise ValueError(f"Matrix exceeds {max_size}x{max_size}")
 
     def display_result(self, operation, result, k=0):
+        """Renders the calculation output in the text widget with formatting."""
         self.output_text.config(state='normal')
         self.output_text.insert(tk.END, f"\n{'='*50}\nOperation: {operation.title()}\n")
         
@@ -221,21 +263,38 @@ class AdvancedMathCalculator:
                 status = "✓ Yes" if val else "✗ No"
                 self.output_text.insert(tk.END, f"  {prop.replace('_',' ').title()}: {status}\n")
         elif k == 3: self.output_text.insert(tk.END, f"{result}\n")
-        else: self.output_text.insert(tk.END, f"Result: {result}\n")
+        else: self.output_text.insert(tk.END, f"Result: {logic.format_symbolic(result)}\n")
         
         self.output_text.insert(tk.END, f"{'='*50}\n")
         self.output_text.see(tk.END)
         self.output_text.config(state='disabled')
 
     def show_matrix_with_inf_check(self, matrix):
+        """Returns a string representation of a matrix with aligned symbols and fractions."""
         if not matrix: return "Empty matrix"
-        res = ""
+        
+        # 1. Format all elements to strings first
+        str_matrix = []
         for row in matrix:
-            formatted = [str(round(float(n), 3)) if abs(float(n)) < 1e100 else "inf" for n in row]
-            res += f"[ {' '.join(formatted)} ]\n"
+            str_matrix.append([logic.format_symbolic(n) for n in row])
+            
+        # 2. Calculate max width for each column
+        num_cols = len(str_matrix[0])
+        col_widths = []
+        for j in range(num_cols):
+            max_w = max(len(row[j]) for row in str_matrix)
+            col_widths.append(max_w)
+            
+        # 3. Build the formatted string
+        res = ""
+        for row in str_matrix:
+            # Join with padding and extra space between columns
+            formatted_row = "  ".join(val.ljust(col_widths[i]) for i, val in enumerate(row))
+            res += f"[  {formatted_row}  ]\n"
         return res
     
     def create_matrix_inputs(self):
+        """Dynamically generates matrix input text areas based on count."""
         for w in self.matrix_input_frame.winfo_children(): w.destroy()
         self.matrix_texts = []
         count = int(self.matrix_count_var.get())
@@ -250,15 +309,18 @@ class AdvancedMathCalculator:
         for i in range(cols): self.matrix_input_frame.grid_columnconfigure(i, weight=1)
 
     def update_matrix_inputs(self):
+        """Triggers widget recreation when matrix count changes."""
         self.matrix_count = int(self.matrix_count_var.get())
         self.create_matrix_inputs()
 
     def clear_output(self):
+        """Wipes the results terminal."""
         self.output_text.config(state='normal')
         self.output_text.delete('1.0', tk.END)
         self.output_text.config(state='disabled')
 
     def copy_results(self):
+        """Copies the entire output log to system clipboard."""
         try:
             content = self.output_text.get('1.0', tk.END)
             if content.strip():
